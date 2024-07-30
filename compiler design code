@@ -1,0 +1,85 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+
+typedef enum {
+    TOKEN_NUMBER,
+    TOKEN_PLUS,
+    TOKEN_PRINT,
+    TOKEN_SEMICOLON,
+    TOKEN_EOF,
+    TOKEN_INVALID
+} TokenType;
+
+typedef struct {
+    TokenType type;
+    int value; // Only used for TOKEN_NUMBER
+} Token;
+
+Token get_next_token(const char **input) {
+    while (isspace(**input)) (*input)++;
+    
+    if (isdigit(**input)) {
+        int value = 0;
+        while (isdigit(**input)) {
+            value = value * 10 + (**input - '0');
+            (*input)++;
+        }
+        return (Token){TOKEN_NUMBER, value};
+    }
+    
+    char ch = **input;
+    (*input)++;
+    switch (ch) {
+        case '+': return (Token){TOKEN_PLUS, 0};
+        case ';': return (Token){TOKEN_SEMICOLON, 0};
+        case 'p': return (Token){TOKEN_PRINT, 0}; // assuming 'p' stands for print
+        case '\0': return (Token){TOKEN_EOF, 0};
+        default: return (Token){TOKEN_INVALID, 0};
+    }
+}
+
+void generate_code(const Token *tokens, int num_tokens) {
+    for (int i = 0; i < num_tokens; i++) {
+        switch (tokens[i].type) {
+            case TOKEN_NUMBER:
+                printf("mov eax, %d\n", tokens[i].value);
+                break;
+            case TOKEN_PLUS:
+                printf("push eax\n");
+                break;
+            case TOKEN_PRINT:
+                printf("call print_int\n");
+                break;
+            case TOKEN_SEMICOLON:
+                printf("pop ebx\n");
+                printf("add eax, ebx\n");
+                printf("call print_int\n");
+                break;
+            case TOKEN_EOF:
+                printf("mov eax, 1 ; sys_exit\n");
+                printf("xor ebx, ebx ; status 0\n");
+                printf("int 0x80 ; call kernel\n");
+                break;
+            default:
+                printf("Invalid token\n");
+                break;
+        }
+    }
+}
+
+int main() {
+    const char *input = "2 + 3 + 4 ;";
+    Token tokens[100];
+    int num_tokens = 0;
+
+    while (1) {
+        Token token = get_next_token(&input);
+        tokens[num_tokens++] = token;
+        if (token.type == TOKEN_EOF || token.type == TOKEN_INVALID) break;
+    }
+
+    generate_code(tokens, num_tokens);
+    return 0;
+}
